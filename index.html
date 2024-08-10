@@ -4,13 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tìm Kiếm Dịch Vụ</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            max-width: 960px; 
+            border-collapse: collapse;
+            margin: 20px auto; 
+            text-align: left;
+        }
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+        }
+        th {
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        th:nth-child(1) {
+            width: 200px; /* Cột Tên dịch vụ */
+        }
+        th:nth-child(2) {
+            width: 150px; /* Cột Ngày ra y lệnh */
+        }
+        th:nth-child(3) {
+            width: 150px; /* Cột Ngày bắt đầu thực hiện Y lệnh */
+        }
+        th:nth-child(4) {
+            width: 150px; /* Cột Ngày trả kết quả */
+        }
+        th:nth-child(5) {
+            width: 350px; /* Cột Chi tiết lỗi */
+        }
+        td {
+            text-align: left;
+            vertical-align: top; 
+            word-break: break-word; 
+            position: relative;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .error {
+            color: red; 
+        }
+        .error-icon {
+            color: red;
+            margin-left: 5px;
+            cursor: pointer;
+        }
+        .tooltip {
+            display: none;
+            position: absolute;
+            background-color: #333;
+            color: #fff;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            bottom: 100%; /* Hiển thị trên cùng của phần tử */
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+        .error-icon:hover .tooltip {
+            display: block;
+        }
+        #searchButton {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #searchButton:hover {
+            background-color: #45a049;
+        }
+        footer {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #777;
+            text-align: center;
+        }
+        footer a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
     <img src="https://hagiang-file.vnptioffice.vn/api/file/read-file/view/logo.png?validate_time=dDz4MJAh5c4To7i67qOjpvgYPTifzG9j&refresh_token=p3rCNFi625GKA4XsJpiaaThKFsu0F4cU&path=Y1PUIu4hULpO5GZBgl+RLbBpsQSMnxVwzMCWKplYV9pgBkzC3/4m/4DtXTmpK7juuGQElDX5epoHOIsUDwpIPBhKdwf47Hy5egfuuHLTfYuzKm9B06Z6QINr6VBSgbcmJimOtezESKo=#toolbar=1" 
-     alt="Logo VNPT Hà Giang" 
-     style="max-width: 100px; height: auto; margin-bottom: 20px;">
+         alt="Logo VNPT Hà Giang" 
+         style="max-width: 100px; height: auto; margin-bottom: 20px;">
     <h1>Trung tâm công nghệ thông tin - VNPT Hà Giang</h1>
     <h2>Tiện ích tra cứu XML3 (Bảng 3)</h2>
     <div id="searchTool">
@@ -22,6 +118,118 @@
         <button id="searchButton">Tìm kiếm</button>
         <div id="result"></div>
     </div>
+
+    <script>
+        document.getElementById('searchButton').addEventListener('click', function() {
+            const fileInput = document.getElementById('fileInput');
+            const serviceName = document.getElementById('serviceName').value.trim();
+
+            if (fileInput.files.length === 0) {
+                alert("Vui lòng chọn file XML!");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                try {
+                    const data = event.target.result;
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(data, "text/xml");
+                    displayResults(xmlDoc, serviceName);
+                } catch (error) {
+                    alert("Đã xảy ra lỗi khi xử lý file XML.");
+                }
+            };
+
+            reader.onerror = function() {
+                alert("Đã xảy ra lỗi khi đọc file.");
+            };
+
+            reader.readAsText(file);
+        });
+
+        function displayResults(xmlDoc, serviceName) {
+            const services = xmlDoc.getElementsByTagName("CHI_TIET_DVKT");
+            let resultHTML = `
+                <table>
+                    <tr>
+                        <th>Tên dịch vụ</th>
+                        <th>Ngày ra y lệnh</th>
+                        <th>Ngày bắt đầu<br>thực hiện Y lệnh</th>
+                        <th>Ngày trả kết quả</th>
+                        <th>Chi tiết lỗi</th>
+                    </tr>`;
+            let found = false;
+            const currentTime = new Date(); // Lấy thời gian hiện tại
+
+            Array.from(services).forEach(service => {
+                const tenDichVu = service.getElementsByTagName("TEN_DICH_VU")[0]?.textContent || "";
+                if (!serviceName || tenDichVu.includes(serviceName)) {
+                    found = true;
+                    const ngayYL = service.getElementsByTagName("NGAY_YL")[0]?.textContent || "";
+                    const ngayTHYL = service.getElementsByTagName("NGAY_TH_YL")[0]?.textContent || "";
+                    const ngayKQ = service.getElementsByTagName("NGAY_KQ")[0]?.textContent || "";
+                    let errorMessage = "";
+                    let errorClassTHYL = "";
+                    let errorClassKQ = "";
+                    let errorClassYL = "";
+
+                    const dateYL = parseDate(ngayYL);
+                    const dateTHYL = parseDate(ngayTHYL);
+                    const dateKQ = parseDate(ngayKQ);
+
+                    if (dateTHYL < dateYL) {
+                        errorMessage += `Ngày bắt đầu thực hiện Y lệnh (${formatDate(ngayTHYL)}) không được nhỏ hơn Ngày ra y lệnh (${formatDate(ngayYL)})`;
+                        errorClassTHYL = "error";
+                    }
+                    if (dateKQ < dateYL || dateKQ < dateTHYL) {
+                        if (dateKQ < dateYL) {
+                            errorMessage += `Ngày trả kết quả (${formatDate(ngayKQ)}) không được nhỏ hơn Ngày ra y lệnh (${formatDate(ngayYL)})`;
+                        }
+                        if (dateKQ < dateTHYL) {
+                            errorMessage += `Ngày trả kết quả (${formatDate(ngayKQ)}) không được nhỏ hơn Ngày bắt đầu thực hiện Y lệnh (${formatDate(ngayTHYL)})`;
+                        }
+                        errorClassKQ = "error";
+                    }
+                    if (!dateYL) {
+                        errorClassYL = "error";
+                    }
+
+                    resultHTML += `<tr>
+                        <td>${tenDichVu}</td>
+                        <td class="${errorClassYL}">${ngayYL}</td>
+                        <td class="${errorClassTHYL}">${ngayTHYL}</td>
+                        <td class="${errorClassKQ}">${ngayKQ}</td>
+                        <td class="${errorMessage ? 'error' : ''}">${errorMessage}</td>
+                    </tr>`;
+                }
+            });
+
+            resultHTML += "</table>";
+            if (!found) {
+                resultHTML = `<p>Không tìm thấy dịch vụ${serviceName ? `: ${serviceName}` : ''}</p>`;
+            }
+            document.getElementById('result').innerHTML = resultHTML;
+        }
+
+        function parseDate(dateString) {
+            if (!dateString) return null;
+            const year = dateString.substring(0, 4);
+            const month = dateString.substring(4, 6) - 1; // Tháng trong JavaScript bắt đầu từ 0
+            const day = dateString.substring(6, 8);
+            const hour = dateString.substring(8, 10);
+            const minute = dateString.substring(10, 12);
+            return new Date(year, month, day, hour, minute);
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return "";
+            return `${dateString.substring(6, 8)}/${dateString.substring(4, 6)}/${dateString.substring(0, 4)} ${dateString.substring(8, 10)}:${dateString.substring(10, 12)}`;
+        }
+    </script>
+
     <footer>
         <p>Mọi chi tiết xin liên hệ: Hoàng Huy - VNPT Hà Giang - Email: <a href="mailto:huyhd.hgg@vnpt.vn">huyhd.hgg@vnpt.vn</a></p>
         <p>Điện thoại/zalo: 0846.860.555</p>
